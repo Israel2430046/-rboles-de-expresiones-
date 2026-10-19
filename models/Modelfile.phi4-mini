@@ -1,0 +1,2 @@
+FROM /home/israel/Documentos/fundamentos_ia/Entorno/Phi-4-mini-instruct-Q4_K_M.gguf
+PARAMETER num_ctx 8192

@@ -1,0 +1,2 @@
+FROM /home/israel/Documentos/fundamentos_ia/Entorno/meta-llama-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+PARAMETER num_ctx 16384

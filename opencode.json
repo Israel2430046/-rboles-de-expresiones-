@@ -1,0 +1,58 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "ollama/local-llama31-8b",
+  "small_model": "ollama/local-phi4-mini",
+  "default_agent": "build",
+  "instructions": ["./OPENCODE.md"],
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama local",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "timeout": 600000
+      },
+      "models": {
+        "local-llama31-8b": {
+          "name": "Llama 3.1 8B Q4_K_M (local)",
+          "limit": { "context": 16384, "output": 2048 }
+        },
+        "local-phi4-mini": {
+          "name": "Phi-4 mini Q4_K_M (local)",
+          "limit": { "context": 8192, "output": 2048 }
+        }
+      }
+    }
+  },
+  "agent": {
+    "build": {
+      "model": "ollama/local-llama31-8b",
+      "permission": {
+        "skill": {
+          "*": "deny",
+          "project-planning": "allow",
+          "implementation": "allow",
+          "testing": "allow",
+          "code-review": "allow",
+          "documentation": "allow"
+        },
+        "task": {
+          "*": "deny",
+          "architect": "allow",
+          "reviewer": "allow",
+          "tester": "allow",
+          "documenter": "allow"
+        }
+      }
+    },
+    "plan": {
+      "model": "ollama/local-phi4-mini",
+      "permission": {
+        "skill": {
+          "*": "deny",
+          "project-planning": "allow"
+        }
+      }
+    }
+  }
+}
