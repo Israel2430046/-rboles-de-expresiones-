@@ -1,4 +1,32 @@
-# OpenCode con modelos locales
+# Laboratorio de árboles de expresión
+
+Aplicación local en Python con editor de expresiones, árbol de operaciones,
+gráfica, evaluación compleja y solución de ecuaciones en reales o complejos.
+Incluye controles de intervalo, paso y altura máxima; catálogo de operadores;
+generación de pruebas; y módulos de mutación, cruce y fitness para algoritmos genéticos.
+
+Inicia la ventana desde esta carpeta (dependencias instaladas en `venv/`):
+
+```bash
+venv/bin/python main.py
+```
+
+Consulta [instalación, uso, convenciones matemáticas y API](docs/APLICACION.md).
+Los ejemplos generados están en [ecuaciones_prueba/](ecuaciones_prueba/).
+
+Pruebas del motor:
+
+```bash
+PYTHONPATH=src venv/bin/python -m unittest discover -s tests -v
+```
+
+Prueba de la ventana, que requiere una sesión gráfica:
+
+```bash
+venv/bin/python scripts/check_gui.py
+```
+
+## OpenCode con modelos locales
 
 Esta carpeta configura OpenCode para usar los dos modelos GGUF distintos encontrados en esta máquina. Los archivos duplicados en `taller_crewai/` representan los mismos modelos. La configuración usa Ollama en `127.0.0.1:11434` y no necesita claves de API.
 
@@ -22,6 +50,8 @@ bash scripts/start-local-opencode.sh --setup-only
 ```
 
 Después puedes usar `opencode` directamente desde esta carpeta. En OpenCode, `/models` muestra ambos modelos. Pide tareas concretas a `@architect`, `@reviewer`, `@tester` o `@documenter`; `build` es el agente principal. Las instrucciones y skills del proyecto se cargan desde `opencode.json` y `.opencode/`.
+
+Los requisitos de la aplicación de árboles de expresión están en `PROJECT_REQUIREMENTS.md`. El archivo `src/grafo.py` ahora inicia la aplicación modular de `src/expresiones/`. La configuración pide verificar cada entregable y restringe a `@documenter` a documentación. Los comandos de Git que crean repositorio, preparan cambios o hacen commits requieren aprobación; `git push` y la creación de remotos están bloqueados. Cierra y vuelve a abrir OpenCode para que lea estos cambios.
 
 ## Usarlo en otros proyectos
 

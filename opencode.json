@@ -3,7 +3,20 @@
   "model": "ollama/local-llama31-8b",
   "small_model": "ollama/local-phi4-mini",
   "default_agent": "build",
-  "instructions": ["./OPENCODE.md"],
+  "instructions": ["./OPENCODE.md", "./PROJECT_REQUIREMENTS.md"],
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git init*": "ask",
+      "git add*": "ask",
+      "git commit*": "ask",
+      "git push*": "deny",
+      "git * push*": "deny",
+      "git remote add*": "deny",
+      "gh *": "deny",
+      "glab *": "deny"
+    }
+  },
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",

@@ -30,7 +30,7 @@ def main() -> None:
     project_config = json.loads((PROJECT / "opencode.json").read_text(encoding="utf-8"))
     desired = {
         key: project_config[key]
-        for key in ("model", "small_model", "default_agent", "provider", "agent")
+        for key in ("model", "small_model", "default_agent", "provider", "agent", "permission")
     }
     desired["instructions"] = [str(CONFIG_DIR / "LOCAL_WORKFLOW.md")]
 
@@ -40,6 +40,7 @@ def main() -> None:
         current[key] = desired[key]
     for key in ("provider", "agent"):
         current.setdefault(key, {}).update(desired[key])
+    current.setdefault("permission", {}).setdefault("bash", {}).update(desired["permission"]["bash"])
     instructions = current.setdefault("instructions", [])
     for instruction in desired["instructions"]:
         if instruction not in instructions:

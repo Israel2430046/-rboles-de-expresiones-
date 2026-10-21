@@ -1,0 +1,51 @@
+# Expresiones aleatorias
+# Estados en x ∈ [-5, 5] con paso 0.25
+(x - e)  # real: 41
+log(x)  # complejo: 20, indefinido: 1, real: 20
+(x - log(sqrt(((sin(x) * 1) + (log(i) + sin((x - x)))))))  # complejo: 41
+(sqrt(sin(i)) - e)  # complejo: 41
+((pi / ((0 + e) / sqrt(sqrt(i)))) * (cos(cos((((x - x) - sqrt(pi)) * ((pi - 5) + sqrt(e))))) ** i))  # complejo: 41
+((log(((log(sin(x)) * (x ** i)) * (log(8) * log((pi / pi))))) ** (i / (x / sin(pi)))) - log(9))  # indefinido: 41
+(cos(1) / cos(((x - x) + ((log(x) - (x / (x + 6))) ** log(sqrt(x))))))  # complejo: 23, indefinido: 1, real: 17
+log(x)  # complejo: 20, indefinido: 1, real: 20
+sqrt(log(x))  # complejo: 23, indefinido: 1, real: 17
+((((cos(log((e ** 5))) + ((x - 3) ** x)) / (log(log(pi)) * x)) / log(x)) - ((((x + 2) ** e) ** (x + log(2))) / (((log(cos(x)) - ((x * pi) / (i / x))) / (7 / (3 / 1))) + cos(log((i + (i ** pi)))))))  # complejo: 38, indefinido: 3
+sin(log(9))  # real: 41
+((log(((sin((4 - 6)) - log(6)) / (((x + e) ** sqrt(pi)) * x))) + (sin(3) ** x)) + x)  # complejo: 30, real: 10, indefinido: 1
+sqrt((cos((0 / x)) / (sqrt(log(sqrt(log(6)))) - sqrt(((log(x) ** 1) / pi)))))  # complejo: 34, indeterminado: 1, real: 6
+(pi - 3)  # real: 41
+cos(sqrt((cos((cos(sin(4)) + log((7 / x)))) / cos(sqrt(log(e))))))  # complejo: 20, indefinido: 1, real: 20
+(6 + 4)  # real: 41
+(sin(cos(x)) / log(i))  # complejo: 41
+(((x / x) + (((((i * pi) - cos(x)) * i) ** ((cos(i) + (x + pi)) - sqrt(cos(e)))) / (log(sqrt((x ** x))) ** cos(sqrt((7 * 4)))))) - (log((pi - sqrt(sqrt((x + x))))) ** sin(log(log(sqrt(x))))))  # complejo: 39, indeterminado: 1, indefinido: 1
+(log((pi * log(((x ** (x * pi)) - sqrt(0))))) / sqrt((x + ((x + (cos(e) - 8)) - (cos((x + x)) ** x)))))  # complejo: 38, indeterminado: 1, indefinido: 1, real: 1
+((e * (4 + pi)) * (log(x) / pi))  # complejo: 20, indefinido: 1, real: 20
+(sqrt(cos(log(sqrt(pi)))) ** (e ** (((sqrt((pi * 7)) * sin((2 - pi))) ** log(1)) + cos((log((3 + pi)) + (8 + sqrt(i)))))))  # complejo: 41
+((log(((((7 * 8) - sqrt(7)) - cos(e)) / (pi - pi))) ** sqrt(sqrt(sin(log(sin(x)))))) / (cos(7) / ((x + sqrt(i)) * 2)))  # indefinido: 41
+(cos(sin(log(sin(sqrt((x + i)))))) ** e)  # complejo: 41
+((((sin(((x * pi) / sqrt(x))) + ((sqrt(e) + pi) ** cos(sqrt(4)))) + (pi - (x ** (sqrt(i) + (3 / x))))) ** (sqrt(x) + pi)) - (pi / ((sqrt((sin(x) ** e)) ** cos(log(cos(pi)))) ** e)))  # complejo: 39, indeterminado: 1, real: 1
+(sin(x) ** log((sqrt(((0 - x) ** sin(log(e)))) / cos(sqrt((5 ** (i / e)))))))  # complejo: 40, indefinido: 1
+sin(x)  # real: 41
+sqrt(e)  # real: 41
+(x + (i / x))  # complejo: 40, indefinido: 1
+(i + i)  # complejo: 41
+(i + (2 * (sin((((8 + 0) / cos(pi)) - (sin(x) - e))) - sin(log(log((e - x)))))))  # complejo: 41
+
+# Casos límite compatibles con la altura elegida
+sqrt(-4)  # Raíz compleja: 2i
+1/0  # División indefinida; no equivale a un valor infinito
+0/0  # Indeterminado
+0^0  # Indeterminado por convención
+log(0)  # Indefinido
+exp(1000)  # Desbordamiento numérico
+1/(x-0.25)  # Polo entre muestras
+1/(x-0.25)^2  # Polo de orden par
+tan(x)  # Polos periódicos
+sqrt(x)  # Complejos para x < 0
+cbrt(-8)  # Raíz cúbica real: -2
+x/x = 1  # Infinitas soluciones excepto x=0
+x = x  # Todos los valores del dominio
+x+1 = x  # Sin soluciones
+x^2+1 = 0  # Sin soluciones reales; soluciones complejas ±i
+sin(x) = 0  # Infinitas soluciones discretas
+0*(1/x) = 0  # No perder la exclusión de x=0
