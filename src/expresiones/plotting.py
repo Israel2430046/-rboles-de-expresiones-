@@ -119,10 +119,16 @@ def draw_fit(figure, xs, ys, curve=None, fitted=None, current=None, history=(), 
         valid = [(x, v) for x, v in zip(xs, fitted) if v is not None]
         if valid:
             ax.scatter(*zip(*valid), s=22, facecolors="none", edgecolors="#2563eb", zorder=5, label=r"$\hat{y}_i$ en cada $x_i$")
+    # El límite anterior sólo usaba el CSV y recortaba la función calculada.
+    # Incluimos la curva y las predicciones, pero no el candidato transitorio.
     finite = [y for y in ys if math.isfinite(y)]
+    if curve is not None:
+        finite.extend(y for y in curve[1] if math.isfinite(y))
+    if fitted is not None:
+        finite.extend(y for y in fitted if y is not None and math.isfinite(y))
     if finite:
         low, high = min(finite), max(finite)
-        margin = (high - low) * 0.25 or 1
+        margin = (high - low) * 0.08 or 1
         ax.set_ylim(low - margin, high + margin)
     ax.set_title(title[:110] + ("…" if len(title) > 110 else ""), fontsize=10)
     ax.set_xlabel("x")

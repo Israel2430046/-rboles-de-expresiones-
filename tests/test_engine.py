@@ -229,6 +229,17 @@ class IntegrationTests(unittest.TestCase):
         canvas.draw()
         self.assertIn('1e+308', figure.axes[0].get_ylabel())
 
+    def test_fit_plot_contains_csv_and_full_predicted_curve(self):
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from expresiones.plotting import draw_fit
+        figure = Figure()
+        canvas = FigureCanvasAgg(figure)
+        ax = draw_fit(figure, [0, 1], [1, 2], curve=([0, 0.5, 1], [1, 8, 2]))
+        canvas.draw()
+        self.assertEqual(len(ax.collections[0].get_offsets()), 2)
+        self.assertGreater(ax.get_ylim()[1], 8)
+
 
 
 class ImprovementTests(unittest.TestCase):
@@ -325,11 +336,16 @@ class RegressionTests(unittest.TestCase):
         self.assertAlmostEqual(float(rows[0]['RMSE']), math.sqrt(1 / 3))
 
     def test_presets_are_written(self):
-        from expresiones.regression import write_presets, load_points, PRESETS
+        from expresiones.regression import write_presets, write_test_points, load_points, PRESETS
         with tempfile.TemporaryDirectory() as directory:
             paths = write_presets(directory, count=20)
             self.assertEqual(len(paths), len(PRESETS) + 1)
             self.assertTrue(all(len(load_points(p)[0]) == 20 for p in paths))
+            test_path = write_test_points(directory)
+            xs, ys, skipped = load_points(test_path)
+            self.assertEqual((len(xs), skipped), (81, 0))
+            expected = [evaluate(parse('6.87 + 11*cos(7.23*x^3)').left, x).value.real for x in xs]
+            self.assertTrue(all(abs(a - b) < 1e-12 for a, b in zip(ys, expected)))
 
 
 
@@ -375,15 +391,13 @@ class GeneticProgrammingTests(unittest.TestCase):
         self.assertLess(gp.best.mse, initial)
         self.assertLess(gp.best.mse / gp.variance, 0.05)
 
-    def test_linear_scaling_and_random_seed(self):
+    def test_tree_is_the_whole_model_and_random_seed(self):
         from expresiones.gp import GeneticProgramming
         tree = parse('x^2 - 2*x').left
         gp = self.make()
-        mse, _, a, b = gp._measure(parse('(x^2 - 2*x) / 7 + 3').left)
-        self.assertAlmostEqual(mse, 0, places=6)        # a y b absorben escala y desplazamiento
-        self.assertNotEqual((a, b), (0.0, 1.0))
-        plain = self.make(linear_scaling=False)
-        self.assertEqual(plain._measure(tree)[0], 0)
+        mse = gp.fitness(parse('(x^2 - 2*x) / 7 + 3').left)
+        self.assertGreater(mse, 0)  # no hay regresión que absorba escala/desplazamiento
+        self.assertEqual(gp.fitness(tree), 0)
         seeds = {GeneticProgramming(self.xs, self.ys, ('+', '*')).seed for _ in range(5)}
         self.assertGreater(len(seeds), 1)                # sin semilla, cada ejecución es distinta
         first, second = self.make(seed=11), self.make(seed=11)
@@ -395,10 +409,8 @@ class GeneticProgrammingTests(unittest.TestCase):
         gp = self.make(stagnation=2)
         gp.run(12)
         shown = gp.diverse_ranking(10)
-        shapes = [gp._shape(i) for i in shown]
-        for i, first in enumerate(shapes):
-            for second in shapes[i + 1:]:
-                self.assertGreaterEqual(gp._distance(first, second), 0.15)
+        self.assertEqual(len({i.expression for i in shown}), len(shown))
+        self.assertEqual([i.mse for i in shown], sorted(i.mse for i in shown))
         self.assertGreater(gp.restarts, 0)
         self.assertTrue(any('inmigrante' in i.origin or 'reinicio' in i.origin for i in gp.population))
 
@@ -406,8 +418,11 @@ class GeneticProgrammingTests(unittest.TestCase):
         gp = self.make()
         gp.initialize()
         before = [(i.expression, i.mse) for i in gp.population]
-        winner = gp.select()
-        self.assertIn(winner, gp.population)
+        self.assertEqual([i.mse for i in gp.population], sorted(i.mse for i in gp.population))
+        for _ in range(100):
+            self.assertIn(gp.select(), gp.population[:50])  # corte izquierdo
+        gp.selection = 'torneo'
+        self.assertIn(gp.select(), gp.population[:50])
         self.assertEqual(before, [(i.expression, i.mse) for i in gp.population])
 
     def test_crossover_dominant_and_reciprocal(self):
@@ -429,19 +444,18 @@ class GeneticProgrammingTests(unittest.TestCase):
         tree = parse('(x - 3) / sin(x)').left
         switched = gp._mutate_intercambio(tree)
         self.assertIn(switched.to_expression(), ('(sin(x) / (x - 3))', '((3 - x) / sin(x))'))
-        point = gp._mutate_puntual(tree)
-        self.assertEqual(point.size, tree.size)                # misma forma
-        self.assertEqual([len(n.children) for _, n in point.walk()], [len(n.children) for _, n in tree.walk()])
-        reduced = gp._mutate_reduccion(tree)
-        self.assertLess(reduced.size, tree.size)
+        leaf = gp._mutate_hoja(tree)
+        operator = gp._mutate_operador(tree)
+        for point in (leaf, operator):
+            self.assertEqual(point.size, tree.size)
+            self.assertEqual([len(n.children) for _, n in point.walk()], [len(n.children) for _, n in tree.walk()])
         for _ in range(30):
             self.assertLessEqual(gp._mutate_subarbol(tree).height, 5)
         self.assertIsNone(gp._mutate_intercambio(parse('sin(x)').left))   # el hijo único es el izquierdo
 
     def test_mutation_limits_and_validation(self):
         from expresiones.gp import MUTATIONS
-        with self.assertRaises(ValueError):
-            self.make(mutations=tuple(MUTATIONS))
+        self.assertEqual(set(self.make(mutations=tuple(MUTATIONS)).mutations), set(MUTATIONS))
         with self.assertRaises(ValueError):
             self.make(mutations=())
         with self.assertRaises(ValueError):
@@ -450,6 +464,24 @@ class GeneticProgrammingTests(unittest.TestCase):
         gp.initialize()
         gp.step()
         self.assertEqual(set(gp.mutation_counts), {'intercambio'})
+
+    def test_cosine_csv_is_recovered_by_tree_evolution(self):
+        from expresiones.gp import GeneticProgramming
+        from expresiones.regression import load_points, squared_error
+        xs, ys, skipped = load_points(Path(__file__).resolve().parents[1] / 'datos_csv' / 'objetivo_coseno.csv')
+        self.assertEqual(skipped, 0)
+        gp = GeneticProgramming(xs, ys, ('+', '-', '*', '/', '**', 'sin', 'cos'),
+                                max_height=6, population_size=100, seed=1, stagnation=100)
+        best = gp.run(60)
+        self.assertLess(best.mse, 0.001)
+        self.assertAlmostEqual(best.mse, squared_error(best.tree, xs, ys), places=10)
+        self.assertLessEqual(best.tree.height, 6)
+        self.assertIn('cos', best.expression)
+
+    def test_complex_predictions_are_penalized(self):
+        gp = self.make()
+        self.assertEqual(gp.fitness(parse('sqrt(-x)').left), math.inf)
+        self.assertEqual(gp.fitness(parse('(-x)^0.5').left), math.inf)
 
 
 if __name__ == '__main__':

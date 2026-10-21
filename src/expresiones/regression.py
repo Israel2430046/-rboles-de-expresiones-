@@ -17,6 +17,7 @@ from .metrics import regression_metrics
 from .parser import parse
 
 MAX_POINTS = 5000
+TEST_FORMULA = "6.87 + 11*cos(7.23*x^3)"
 X_NAMES = ("x",)
 Y_NAMES = ("y", "real", "valor", "f(x)", "f")
 
@@ -109,6 +110,16 @@ def write_points(path, xs, ys, comment=None):
         writer.writerow(["x", "y"])
         writer.writerows(zip(xs, ys))
     return Path(path)
+
+
+def write_test_points(directory, count=81):
+    """Genera el caso de referencia sin ruido como CSV x,y."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    _, xs, ys = make_dataset(seed=2026, count=count, noise=0,
+                             start=-1.25, end=1.25, formula=TEST_FORMULA)
+    return write_points(directory / "objetivo_coseno.csv", xs, ys,
+                        f"Función original: {TEST_FORMULA}; sin ruido")
 
 
 def squared_error(tree, xs, ys, worst=math.inf):

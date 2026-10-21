@@ -3,7 +3,27 @@
 Aplicación local en Python con editor de expresiones, árbol de operaciones,
 gráfica, evaluación compleja y solución de ecuaciones en reales o complejos.
 Incluye controles de intervalo, paso y altura máxima; catálogo de operadores;
-generación de pruebas; y módulos de mutación, cruce y fitness para algoritmos genéticos.
+generación de pruebas; y programación genética para ajustar puntos de un CSV.
+
+## Reproducir el ajuste del coseno
+
+```bash
+venv/bin/python main.py
+```
+
+En **Ajuste CSV**, pulsa **CSV función de prueba** para generar y cargar
+`datos_csv/objetivo_coseno.csv`, con 81 pares `x,y` de
+`6.87 + 11*cos(7.23*x^3)` sin ruido. En **Operadores** deja activos
+`+`, `-`, `*`, `/`, `**`, `sin` y `cos`; fija altura **6**. En la pestaña
+de ajuste usa población **100**, generaciones **60**, semilla **1** y selección
+**ruleta**; pulsa **Evolucionar**. La gráfica muestra los puntos y la curva
+del mejor árbol. El ajuste es estocástico para otras semillas y datos.
+
+Para comprobar el mismo caso sin abrir la ventana:
+
+```bash
+PYTHONPATH=src venv/bin/python -c 'from expresiones.regression import load_points; from expresiones.gp import GeneticProgramming; x,y,_=load_points("datos_csv/objetivo_coseno.csv"); g=GeneticProgramming(x,y,("+","-","*","/","**","sin","cos"),max_height=6,seed=1,stagnation=100); print(g.run(60).expression, g.best.mse)'
+```
 
 Inicia la ventana desde esta carpeta (dependencias instaladas en `venv/`):
 

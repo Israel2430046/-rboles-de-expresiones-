@@ -185,11 +185,9 @@ def main():
         assert app.fit_search.generation == 15 and len(app.fit_search.population) == 100, app.fit_status.get()
         assert 'Evolución terminada' in app.fit_status.get() and 'dominante' in app.fit_genes.get(), app.fit_genes.get()
         assert app.fit_table.heading('iteration')['text'] == 'Generación'
-        for name in ('subarbol', 'puntual', 'intercambio'):
+        for name in ('subarbol', 'hoja', 'operador', 'intercambio'):
             app.gp_mutations[name].set(True)
-        app.gp_mutations['reduccion'].set(True)
-        app._limit_mutations('reduccion')
-        assert not app.gp_mutations['reduccion'].get()
+        assert all(variable.get() for variable in app.gp_mutations.values())
         app.fit_start()                       # continúa la misma población
         while app.fit_job is not None and time.monotonic() < deadline:
             root.update()

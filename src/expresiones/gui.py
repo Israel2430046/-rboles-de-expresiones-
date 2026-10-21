@@ -14,13 +14,13 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from .parser import parse, Expression
 from .tree import Node, validate_size, MAX_HEIGHT
 from .evaluation import evaluate, evaluate_nodes, Status
-from .sampling import Interval, complex_grid
+from .sampling import Interval, complex_grid, sample
 from .genetics import TreeFactory, DEFAULT_OPERATORS
 from .operators import OPERATORS
 from .cases import generate_cases
 from .plotting import draw_function, draw_surface, draw_fit
 from .gp import GeneticProgramming, MUTATIONS, DEFAULT_MUTATIONS
-from .regression import RandomSearch, load_points, make_dataset, predict, write_fit_csv, write_points
+from .regression import RandomSearch, load_points, make_dataset, predict, write_fit_csv, write_points, write_test_points
 from .jobs import compute
 from .exporting import write_function_csv
 
@@ -947,17 +947,17 @@ class ExpressionApp:
         self.fit_genes = tk.StringVar(value="")
         self.fit_signature = None
         self.gp_params = {name: tk.StringVar(value=value) for name, value in
-                          (("population", "100"), ("generations", "60"), ("tournament", "3"), ("crossover", "90"), ("mutation", "20"), ("elitism", "2"),
-                           ("immigrants", "10"), ("stagnation", "15"))}
+                          (("population", "100"), ("generations", "60"), ("tournament", "3"), ("crossover", "90"), ("mutation", "50"), ("elitism", "2"),
+                           ("immigrants", "10"), ("stagnation", "100"))}
         self.fit_seed = tk.StringVar(value="")
-        self.gp_scaling = tk.BooleanVar(value=True)
+        self.gp_selection = tk.StringVar(value="ruleta")
         self.gp_mutations = {name: tk.BooleanVar(value=name in DEFAULT_MUTATIONS) for name in MUTATIONS}
         frame = ttk.Frame(notebook, padding=10)
         notebook.insert(1, frame, text="Ajuste CSV")
         self.fit_tab = frame
         ttk.Label(frame, text="Cada punto del CSV es un dato (xᵢ, yᵢ). Cada ecuación candidata calcula ŷᵢ = f(xᵢ) («y gorro», el valor estimado) y su error "
                   "MSE = (1/n) Σ (yᵢ − ŷᵢ)². Programación genética: individuo = un gen (el árbol, genotipo) → ecuación (fenotipo) → aptitud (MSE). "
-                  "Paso 1: población inicial · Paso 2: evaluación · Paso 3: selección por torneo, cruza de subárboles y mutación, siempre dentro de la altura máxima.",
+                  "Paso 1: población inicial · Paso 2: evaluación · Paso 3: ruleta o torneo, cruza de subárboles y mutación, siempre dentro de la altura máxima.",
                   wraplength=1500, foreground="#475569").pack(anchor="w", pady=(0, 8))
         data_row = ttk.Frame(frame)
         data_row.pack(fill="x", pady=2)
@@ -972,6 +972,7 @@ class ExpressionApp:
         ttk.Label(data_row, text="Ruido %").pack(side="left", padx=(10, 5))
         ttk.Spinbox(data_row, from_=0, to=100, textvariable=self.fit_noise, width=5).pack(side="left")
         ttk.Button(data_row, text="CSV aleatorio", command=self.fit_random_data).pack(side="left", padx=8)
+        ttk.Button(data_row, text="CSV función de prueba", command=self.fit_test_data).pack(side="left", padx=4)
         ttk.Label(data_row, textvariable=self.fit_source, foreground="#334155").pack(side="left", padx=8)
         search_row = ttk.Frame(frame)
         search_row.pack(fill="x", pady=(6, 4))
@@ -995,7 +996,7 @@ class ExpressionApp:
                                               ("crossover", "Cruza %", 0, 100, 4), ("mutation", "Mutación %", 0, 100, 4), ("elitism", "Élite", 0, 100, 4)):
             ttk.Label(self.gp_box, text=label).pack(side="left", padx=(8, 4))
             ttk.Spinbox(self.gp_box, from_=low, to=high, textvariable=self.gp_params[name], width=width).pack(side="left")
-        ttk.Label(self.gp_box, text="Mutaciones (1 a 3):").pack(side="left", padx=(16, 4))
+        ttk.Label(self.gp_box, text="Mutaciones:").pack(side="left", padx=(16, 4))
         for name, description in MUTATIONS.items():
             ttk.Checkbutton(self.gp_box, text=description.split(":")[0], variable=self.gp_mutations[name], command=lambda n=name: self._limit_mutations(n)).pack(side="left", padx=3)
         self.gp_box2 = ttk.Frame(frame)
@@ -1006,7 +1007,8 @@ class ExpressionApp:
         ttk.Label(self.gp_box2, text="Reiniciar tras").pack(side="left", padx=(12, 4))
         ttk.Spinbox(self.gp_box2, from_=1, to=10000, textvariable=self.gp_params["stagnation"], width=5).pack(side="left")
         ttk.Label(self.gp_box2, text="generaciones sin mejora").pack(side="left", padx=(4, 0))
-        ttk.Checkbutton(self.gp_box2, text="Escalado lineal ŷ = a + b·f(x)", variable=self.gp_scaling).pack(side="left", padx=(16, 4))
+        ttk.Label(self.gp_box2, text="Selección").pack(side="left", padx=(12, 4))
+        ttk.Combobox(self.gp_box2, textvariable=self.gp_selection, values=("ruleta", "torneo"), state="readonly", width=8).pack(side="left")
         ttk.Label(self.gp_box2, text="Semilla (vacía = aleatoria)").pack(side="left", padx=(16, 4))
         ttk.Entry(self.gp_box2, textvariable=self.fit_seed, width=11).pack(side="left")
         ttk.Label(frame, textvariable=self.fit_genes, foreground="#7c3aed", wraplength=1500).pack(anchor="w")
@@ -1053,10 +1055,7 @@ class ExpressionApp:
 
     def _limit_mutations(self, changed):
         chosen = [n for n, v in self.gp_mutations.items() if v.get()]
-        if len(chosen) == len(MUTATIONS):
-            self.gp_mutations[changed].set(False)
-            self.fit_status.set("Se combinan de 1 a 3 tipos de mutación, no los cuatro a la vez.")
-        elif not chosen:
+        if not chosen:
             self.gp_mutations[changed].set(True)
             self.fit_status.set("Debe quedar al menos un tipo de mutación activo.")
 
@@ -1079,7 +1078,7 @@ class ExpressionApp:
         self.fit_xs, self.fit_ys = xs, ys
         self.fit_search = self.fit_selected = self.fit_last = None
         self.fit_source.set(source)
-        self.fit_status.set(f"{len(xs)} puntos listos, x ∈ [{min(xs):.4g}, {max(xs):.4g}]. Pulsa «Buscar ecuaciones».")
+        self.fit_status.set(f"{len(xs)} puntos listos, x ∈ [{min(xs):.4g}, {max(xs):.4g}]. Pulsa «Evolucionar».")
         self._fit_fill_table()
         self._fit_draw()
 
@@ -1111,6 +1110,17 @@ class ExpressionApp:
         self.fit_preset.configure(values=self._presets())
         self._fit_set_data(xs, ys, f"{path.name}: {count} puntos (función oculta guardada como comentario en el CSV)")
 
+    def fit_test_data(self):
+        """Genera y carga el caso 6.87 + 11*cos(7.23*x^3), sin ruido."""
+        try:
+            path = write_test_points(DATA_DIR)
+            xs, ys, _ = load_points(path)
+        except (ValueError, OSError) as exc:
+            self.fit_status.set(f"No se pudo generar el CSV: {exc}")
+            return
+        self.fit_preset.configure(values=self._presets())
+        self._fit_set_data(xs, ys, f"{path.name}: 81 puntos de la función de prueba")
+
     def _seed_or_random(self):
         # Sin semilla escrita, cada CSV aleatorio es distinto.
         return self._seed() if self.seed.get().strip() else None
@@ -1124,12 +1134,12 @@ class ExpressionApp:
                 p = {name: int(var.get()) for name, var in self.gp_params.items()}
                 mutations = tuple(n for n, v in self.gp_mutations.items() if v.get())
                 seed = int(self.fit_seed.get()) if self.fit_seed.get().strip() else None
-                signature = ("gp", self._operators(), self._height(), mutations, self.gp_scaling.get(), self.fit_seed.get().strip(),
+                signature = ("gp", self._operators(), self._height(), mutations, self.gp_selection.get(), self.fit_seed.get().strip(),
                              *(p[k] for k in ("population", "tournament", "crossover", "mutation", "elitism", "immigrants", "stagnation")))
                 if self.fit_search is None or signature != self.fit_signature:
                     self.fit_search = GeneticProgramming(self.fit_xs, self.fit_ys, self._operators(), self._height(), p["population"], p["tournament"],
                                                          p["crossover"] / 100, p["mutation"] / 100, mutations, p["elitism"], seed,
-                                                         linear_scaling=self.gp_scaling.get(), immigrants=p["immigrants"] / 100, stagnation=p["stagnation"])
+                                                         selection=self.gp_selection.get(), immigrants=p["immigrants"] / 100, stagnation=p["stagnation"])
                     self.fit_signature = signature
                 if p["generations"] < 1:
                     raise ValueError("Las generaciones deben ser positivas.")
@@ -1186,7 +1196,7 @@ class ExpressionApp:
             summary = (f"{state} · semilla {search.seed} · generación {search.generation} · población {len(search.population)} · "
                        f"válidos {stats.valid} · curvas distintas {stats.unique}")
             counts = ", ".join(f"{name} {count}" for name, count in search.mutation_counts.items())
-            genes = (f"Cruzas: {search.crossovers} · mutaciones: {counts} · constantes afinadas: {search.tuned} · "
+            genes = (f"Cruzas: {search.crossovers} · mutaciones: {counts} · "
                      f"hijos repetidos rechazados: {search.duplicates} · reinicios por estancamiento: {search.restarts}")
             if search.last_crossover:
                 c = search.last_crossover
@@ -1241,8 +1251,13 @@ class ExpressionApp:
             self.fit_canvas.draw_idle()
             return
         low, high = min(self.fit_xs), max(self.fit_xs)
-        dense = [low + (high - low) * i / 300 for i in range(301)]
-        def curve(tree):
+        subdivisions = max(600, min(3000, len(self.fit_xs) * 20))
+        dense = [low + (high - low) * i / subdivisions for i in range(subdivisions + 1)]
+        def curve(tree, detect_breaks=False):
+            if detect_breaks and low < high:
+                samples = sample(tree, Interval(low, high, (high - low) / subdivisions))
+                x_values, y_values, _ = samples.plot_values("real")
+                return x_values, y_values
             return dense, [math.nan if v is None else v for v in predict(tree, dense)]
         candidate = self._fit_candidate()
         title = f"Mejor: ŷ = {candidate.expression}" if candidate else "Datos del CSV"
@@ -1256,7 +1271,7 @@ class ExpressionApp:
             history = self.fit_search.history if self.fit_search else ()
             median, total, xlabel = (), self.fit_search.iterations if self.fit_search else None, "candidatos probados"
         draw_fit(self.fit_figure, self.fit_xs, self.fit_ys,
-                 curve(getattr(candidate, "model", candidate.tree)) if candidate else None,
+                 curve(getattr(candidate, "model", candidate.tree), detect_breaks=True) if candidate else None,
                  predict(getattr(candidate, "model", candidate.tree), self.fit_xs) if candidate else None,
                  curve(self.fit_last) if show_current and self.fit_last is not None else None,
                  history, title, total, xlabel, median, "individuo de la población actual" if gp else "candidato aleatorio actual")
@@ -1270,7 +1285,6 @@ class ExpressionApp:
         self.fit_stop()
         model = getattr(candidate, "model", candidate.tree)
         if model.height > self._height():
-            # a + b·f(x) agrega dos niveles al árbol evolucionado.
             self.height.set(str(min(MAX_HEIGHT, model.height)))
         self.expression_text.set(model.to_expression())
         self.start.set(f"{min(self.fit_xs):g}")

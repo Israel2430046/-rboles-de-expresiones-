@@ -87,15 +87,15 @@ Referencia del solucionador: [documentación oficial de SymPy: solveset](https:/
 - **Vistas:** `2D` (con un recuadro de MSC/MSE, RMSE y NMSE cuando hay g(x)), `3D curva` (x, Re f, Im f) y `3D superficie`: |f(a+bi)| sobre el plano complejo, coloreada por la fase, donde los polos son picos y los ceros, valles. La altura se recorta en el percentil 95.
 - **CSV por función:** los botones «CSV de f(x)» y «CSV de g(x)» están junto a la gráfica, en Datos / CSV y en Métricas. El CSV de f(x) incluye, punto por punto, g(x), el error cuadrático y las métricas MSC/MSE = (1/n) Σ |f−g|², RMSE = √MSE y NMSE = MSE / Var(g).
 
-## Ajuste aleatorio a puntos de un CSV
+## Ajuste de puntos de un CSV
 
-La pestaña **Ajuste CSV** busca ecuaciones que pasen cerca de unos puntos (xᵢ, yᵢ), sin conocer la función original: es regresión simbólica por búsqueda aleatoria.
+La pestaña **Ajuste CSV** busca árboles cuya curva pase cerca de los puntos (xᵢ, yᵢ). La programación genética es el método predeterminado.
 
-1. **Datos:** «Cargar CSV…» (columnas `x,y`; también `;` con coma decimal, sin cabecera o el CSV exportado por la aplicación con `x,real`), un archivo **precargado** de `datos_csv/` o «CSV aleatorio», que crea puntos de una función oculta aleatoria con el ruido indicado y la guarda como comentario en el archivo.
-2. **Búsqueda:** cada candidato es un árbol aleatorio con los operadores marcados y la altura máxima. Para cada xᵢ se calcula **ŷᵢ = f(xᵢ)** («y gorro», el valor estimado) y su error **MSE = (1/n) Σ (yᵢ − ŷᵢ)²**, más RMSE = √MSE y NMSE = MSE / Var(y). Los candidatos con algún ŷ complejo, indefinido o desbordado se descartan y se cuentan. Se conservan las 10 mejores ecuaciones distintas; las que dan los mismos ŷ (por ejemplo `sin(x)*pi` y `pi/(1/sin(x))`) cuentan una sola vez.
-3. **Resultados:** la gráfica muestra los puntos y, la curva ŷ de la mejor ecuación (o la seleccionada en la tabla), los residuos yᵢ − ŷᵢ y el candidato que se prueba en ese momento. Abajo aparece la convergencia del mejor MSE. «Usar como f(x)» la lleva al analizador; «CSV de x, y, ŷ» exporta `x, y, y_gorro, error, error_cuadrado, ecuacion, MSC_MSE, RMSE, NMSE`.
+1. **Datos:** «Cargar CSV…» (columnas `x,y`; también `;` con coma decimal, sin cabecera o el CSV exportado por la aplicación con `x,real`), un archivo **precargado** de `datos_csv/`, «CSV aleatorio» o «CSV función de prueba». Este último genera `6.87 + 11*cos(7.23*x^3)` sin ruido.
+2. **Búsqueda:** cada candidato es un árbol con los operadores marcados y la altura máxima. El método genético crea una población, selecciona padres, cruza y muta árboles; la búsqueda aleatoria opcional genera cada árbol de forma independiente. Para cada xᵢ se calcula **ŷᵢ = f(xᵢ)** y su error **MSE = (1/n) Σ (yᵢ − ŷᵢ)²**, más RMSE = √MSE y NMSE = MSE / Var(y). Los candidatos con algún ŷ complejo, indefinido o desbordado reciben aptitud infinita en el método genético.
+3. **Resultados:** la gráfica muestra los puntos y, la curva ŷ de la mejor ecuación (o la seleccionada en la tabla), los residuos yᵢ − ŷᵢ y el candidato que se prueba en ese momento. La curva respeta los cortes detectados en discontinuidades. Abajo aparece la convergencia del mejor MSE. «Usar como f(x)» la lleva al analizador; «CSV de x, y, ŷ» exporta `x, y, y_gorro, error, error_cuadrado, ecuacion, MSC_MSE, RMSE, NMSE`.
 
-La búsqueda avanza por lotes sin bloquear la ventana y se puede detener. Repetir «Buscar» continúa desde el estado actual; cambiar los operadores o la altura la reinicia. No garantiza encontrar la función original. El mismo fitness (`regression.squared_error`) sirve después para un algoritmo genético que combine `mutate` y `crossover`.
+La búsqueda avanza por lotes sin bloquear la ventana y se puede detener. Repetir «Evolucionar» continúa desde el estado actual; cambiar los operadores o la altura la reinicia. No garantiza encontrar la función original.
 
 ```bash
 PYTHONPATH=src venv/bin/python -m expresiones.regression   # regenera datos_csv/
@@ -110,32 +110,32 @@ PYTHONPATH=src venv/bin/python -m expresiones.regression   # regenera datos_csv/
 | Fenotipo | La ecuación ŷ = f(x) que expresa el árbol |
 | Aptitud | MSE = (1/n) Σ (yᵢ − ŷᵢ)²; menor es mejor. Un ŷ complejo o indefinido da aptitud infinita |
 
-**Paso 1 · Población inicial.** 100 árboles aleatorios (configurable), con alturas escalonadas de 2 a la altura máxima y sin repetidos.
+**Paso 1 · Población inicial.** 100 árboles aleatorios (configurable), con alturas escalonadas de 2 a la altura máxima. Si se habilitan los operadores necesarios, parte de la población explora árboles trigonométricos con potencias de `x` y constantes aleatorias.
 
 **Paso 2 · Evaluación.** Cada individuo se evalúa en todos los puntos del CSV.
 
 **Paso 3 · Nueva generación.**
 - *Élite:* los mejores (2 por defecto) pasan sin cambios, así el mejor error nunca empeora.
-- *Selección por torneo:* se toman k individuos al azar (3 por defecto) y gana el de menor error. La selección no modifica a nadie.
+- *Selección:* la población se ordena por MSE y el corte de selección toma su mitad izquierda (los mejores). La ruleta por rango es el método predeterminado; el torneo de `k` individuos es opcional. La selección no modifica los padres.
 - *Cruza (90 %):* en cada pareja, el padre de menor error es el **dominante** y el otro el **recesivo**. Se corta una rama de cada uno en un punto aleatorio (el 90 % de las veces un operador y el 10 % una hoja) y se intercambian. El **hijo** es el dominante con la rama del recesivo; el **recíproco**, el recesivo con la rama del dominante. Los cortes solo se aceptan si ambos hijos caben en la altura máxima.
-- *Mutación (20 %):* cuatro tipos, de los que se activan entre 1 y 3 a la vez (nunca los cuatro):
+- *Mutación (50 % en el motor; configurable en la interfaz):* se pueden activar los cuatro tipos:
   - **Subárbol:** reemplaza una rama por otra aleatoria.
-  - **Puntual:** cambia un nodo por otro de la **misma aridad** (binario por binario, función por función, hoja por hoja) o desplaza ligeramente una constante. La forma del árbol no cambia, así que la operación no se desarma.
+  - **Hoja:** cambia una hoja o altera el valor de una constante. Es la única forma de afinar constantes.
+  - **Operador:** cambia un operador por otro de la misma aridad.
   - **Intercambio (switch):** en un operador binario invierte los hijos izquierdo y derecho (`x − 3 → 3 − x`). Prefiere `−`, `/`, `^` y `%`, donde el cambio altera el resultado. En las funciones de un argumento el único hijo es siempre el izquierdo, por eso no se intercambian.
-  - **Reducción:** sustituye un operador por uno de sus hijos; frena el crecimiento de los árboles.
-- *Diversidad:* dos individuos cuya curva tiene la misma forma (ŷ normalizado, aunque cambien escala o desplazamiento) cuentan como iguales; se queda el de menor error y el otro se muta. Además, cada generación entra un 10 % de **inmigrantes** totalmente aleatorios, y si el mejor error no mejora al menos un 0.5 % en 15 generaciones se conserva la élite y el resto se **reinicia**. Las constantes son decimales aleatorios en [-5, 5], no solo enteros. La tabla muestra las 10 mejores ecuaciones **con curvas distintas entre sí**, no variantes de la misma.
+- *Diversidad:* los árboles con la misma expresión cuentan una sola vez. Cada generación entra un 10 % de **inmigrantes** aleatorios y, si el error no mejora durante 60 generaciones, se conserva la élite y se reinicia el resto.
 - *Aleatoriedad:* el campo «Semilla» de la pestaña está vacío por defecto, así que cada ejecución es distinta. La semilla usada aparece en el estado; escríbela para repetir exactamente una ejecución.
-- *Acercamiento al resultado:* con **escalado lineal** (activo por defecto), el fenotipo es ŷ = a + b·f(x), con a y b calculados por mínimos cuadrados para cada individuo. Así la evolución busca la forma de la curva y no pierde generaciones ajustando escala y desplazamiento. Cada generación también se **afinan las constantes** numéricas de los 3 mejores individuos mediante búsqueda local. «Usar como f(x)» y el CSV usan la ecuación completa con a y b.
+- *Acercamiento al resultado:* el árbol se evalúa directamente. No hay regresión lineal ni ajuste de parámetros externo a la evolución.
 
-La interfaz muestra la generación, los individuos válidos y distintos, las cruzas y mutaciones de cada tipo, la última cruza (dominante × recesivo → hijo y recíproco), el origen de cada ecuación (élite, cruza, recíproco, copia, + mutación), la curva ŷ sobre los puntos y la convergencia (mejor MSE y mediana de la población). «Evolucionar» de nuevo continúa con la misma población; cambiar algún parámetro la reinicia.
+La interfaz muestra la generación, los individuos válidos y distintos, las cruzas y mutaciones de cada tipo, la última cruza (dominante × recesivo → hijo y recíproco), el origen de cada ecuación, la curva ŷ sobre los puntos y la convergencia. «Evolucionar» de nuevo continúa con la misma población; cambiar algún parámetro la reinicia.
 
 ```python
 from expresiones.regression import load_points
 from expresiones.gp import GeneticProgramming
 
-xs, ys, _ = load_points("datos_csv/racional.csv")
-gp = GeneticProgramming(xs, ys, ("+", "-", "*", "/", "sin", "cos", "exp", "sqrt"), max_height=6,
-                        population_size=100, mutations=("subarbol", "puntual", "intercambio"), seed=1)
+xs, ys, _ = load_points("datos_csv/objetivo_coseno.csv")
+gp = GeneticProgramming(xs, ys, ("+", "-", "*", "/", "**", "sin", "cos"), max_height=6,
+                        population_size=100, seed=1, stagnation=100)
 best = gp.run(60)
 print(best.expression, best.mse)
 ```
@@ -184,7 +184,7 @@ for path, subtree in restored.walk():
 replaced = restored.replace((0,), Node("variable", "x"), max_height=6)
 ```
 
-Los nodos son inmutables. Mutación y cruce respetan altura y número de nodos; si no encuentran un reemplazo válido tras sus intentos, devuelven los padres originales. La generación es reproducible con semilla y no elimina individuos indefinidos. El fitness real penaliza resultados complejos, indefinidos o errores excesivos con `invalid_penalty` (por defecto `1e12`). Es una base reutilizable; no incluye todavía un ciclo evolutivo de selección y generaciones.
+Los nodos son inmutables. Mutación y cruce respetan altura y número de nodos; si no encuentran un reemplazo válido tras sus intentos, devuelven los padres originales. La generación es reproducible con semilla. El fitness real penaliza resultados complejos o indefinidos con `invalid_penalty` (por defecto `1e12`). El ciclo evolutivo completo está en `gp.py`.
 
 | Módulo | Responsabilidad |
 | --- | --- |
@@ -195,7 +195,7 @@ Los nodos son inmutables. Mutación y cruce respetan altura y número de nodos; 
 | `sampling.py` | Intervalos, muestreo, cortes y rejilla compleja |
 | `symbolic.py` | Dominio, restricciones, soluciones y límites con SymPy |
 | `genetics.py` | Generación, mutación, cruce y fitness |
-| `gp.py` | Programación genética: población, evaluación, torneo, cruza dominante/recíproca, 4 mutaciones |
+| `gp.py` | Programación genética: población jerárquica, ruleta, torneo, elitismo, cruza y 4 mutaciones |
 | `regression.py` | Lectura de CSV de puntos, búsqueda aleatoria de ecuaciones, ŷ y exportación |
 | `cases.py` | Lotes de pruebas en JSON y TXT |
 | `plotting.py` | Gráficas 2D, curva 3D y superficie compleja 3D |
